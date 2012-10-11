@@ -181,7 +181,7 @@ int dictionary_save(Dictionary* this, const char* filename) {
 		Entry* entry = &this->entries[i];
 		if (fwrite(&entry->hash, sizeof(entry->hash), 1, f) != 1 ||
 			fwrite(&entry->count, sizeof(entry->count), 1, f) != 1 ||
-			fwrite(&entry->fortunesCount, sizeof(entry->fortunesCount), 1, f) ||
+			fwrite(&entry->fortunesCount, sizeof(entry->fortunesCount), 1, f) != 1 ||
 			fwrite(entry->fortunes, sizeof(*entry->fortunes), entry->fortunesCount, f) != entry->fortunesCount) {
 			error("Failed to write token #%ld into dictionary file.", i);
 			goto close_and_die;

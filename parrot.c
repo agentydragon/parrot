@@ -182,7 +182,7 @@ int build_index() {
 	}
 
 	printf("Saving index...\n");
-	dictionary_save(dictionary, "dictionary.dat");
+	dictionary_save(dictionary, "index.dat");
 
 	printf("Done.\n");
 
@@ -192,7 +192,7 @@ int build_index() {
 // TODO: dilution: score /= delka fortunu v tokenech
 
 void find_similar() {
-	dictionary_load(dictionary, "dictionary.dat");
+	dictionary_load(dictionary, "index.dat");
 
 	FortuneSet* fs;
 	fortune_set_init(&fs);
