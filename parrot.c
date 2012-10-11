@@ -58,7 +58,9 @@ static void load_fortune(Index* index, FILE* file) {
 		.fortune = fortune,
 		.length = 0
 	};
-	// printf("F #%ld: ", fortune);
+#if DEBUG
+	printf("F #%ld: ", fortune);
+#endif
 	while (!feof(file)) {
 		if (!fgets(buffer, sizeof(buffer), file)) {
 			if (feof(file)) break;
@@ -229,7 +231,7 @@ static void read_fortune(uint64_t fortune, char* buffer) {
 static void find_similar(Index* index, bool do_continuous, int continuous_interval) {
 	index_load(index, "index.dat");
 
-	char input[1024]; // TODO: tohle je zle maximum.
+	char input[1024] = { 0 }; // TODO: tohle je zle maximum.
 
 	while (!feof(stdin)) {
 		if (!fgets(input + strlen(input), sizeof(input) - strlen(input), stdin)) {
@@ -292,12 +294,10 @@ int main(int argc, char** argv) {
 		if (!build_index(index)) {
 			error("Failed to build index.");
 			f = 2;
-			goto exit;
 		}
-		goto exit;
+	} else {
+		find_similar(index, do_continuous, 10);
 	}
-
-	find_similar(index, do_continuous, 10);
 
 exit:
 	index_destroy(&index); // TODO takeback

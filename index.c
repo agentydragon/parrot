@@ -76,7 +76,18 @@ void index_init(Index** _this) {
 }
 
 void index_destroy(Index** _index) {
-	free(*_index);
+	uint64_t i;
+	Index* this = *_index;
+
+	for (i = 0; i < this->entries_size; i++) {
+		free(this->entries[i].fortunes);
+	}
+	free(this->entries);
+
+	free(this->fortunes);
+
+	free(this);
+	*_index = NULL;
 }
 
 void index_insert_word(Index* this, hash_t hash, uint64_t fortune) {
@@ -96,8 +107,6 @@ void index_insert_word(Index* this, hash_t hash, uint64_t fortune) {
 			_realloc_entry_fortunes(entry);
 			entry->fortunes[entry->fortunes_size - 1] = fortune;
 
-			// printf("#%X += %ld\n", hash, fortune);
-
 			return;
 		}
 	}
@@ -114,7 +123,7 @@ void index_insert_word(Index* this, hash_t hash, uint64_t fortune) {
 	entry->fortunes[0] = fortune;
 }
 
-void index_get_entry(Index* this, hash_t hash, /*char* word, int *length, int capacity, */ int* word_count) {
+void index_get_entry(Index* this, hash_t hash, int* word_count) {
 	uint64_t i;
 
 	for (i = 0; i < this->entries_size; i++) {
@@ -149,6 +158,7 @@ void index_forget_word(Index* this, hash_t hash) {
 	for (i = 0; i < this->entries_size; i++) {
 		if (this->entries[i].hash == hash) break;
 	}
+	free(this->entries[i].fortunes);
 	memmove(&this->entries[i], &this->entries[i + 1], sizeof(Entry) * this->entries_size - i - 1);
 	this->entries_size--;
 }
@@ -255,6 +265,7 @@ int index_load(Index* this, const char* filename) {
 			goto close_and_die;
 		}
 		entry->fortunes = NULL;
+		entry->fortunes_cap = 0;
 		_realloc_entry_fortunes(entry);
 		if (fread(entry->fortunes, sizeof(*entry->fortunes), entry->fortunes_size, f) != entry->fortunes_size) {
 			error("Failed to read token #%ld from index file.", i); 

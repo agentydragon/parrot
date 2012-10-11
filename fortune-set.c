@@ -25,7 +25,10 @@ void fortune_set_init(FortuneSet** _this) {
 }
 
 void fortune_set_destroy(FortuneSet** _this) {
-	free(*_this);
+	FortuneSet* this = *_this;
+	free(this->entries);
+	free(this);
+	*_this = NULL;
 }
 
 void fortune_set_add_score(FortuneSet* this, uint64_t fortune, float score) {
@@ -86,7 +89,7 @@ uint64_t fortune_set_pick(FortuneSet* this, uint64_t avoid) {
 	for (i = 0, total = 0; i < j; i++) {
 		if (max != min) {
 			scores[i] = (scores[i] - min) / (max - min);
-			if (scores[i] < 0.01f) scores[i] = 0.01f;
+			if (scores[i] < 0.1f) scores[i] = 0.1f;
 		}
 #if DEBUG
 		printf("score[%ld] (%ld) = %f\n", i, fortunes[i], scores[i]);
