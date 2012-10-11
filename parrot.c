@@ -80,7 +80,9 @@ static void load_fortune(FILE* file) {
 }
 
 void print_fortune(uint64_t fortune) {
-	// printf("Fortune at [%ld]: \n", fortune);
+#if DEBUG
+	printf("Fortune at [%ld]: \n", fortune);
+#endif
 	fseek(fortunes, fortune, SEEK_SET);
 	char buffer[256];
 
@@ -101,7 +103,7 @@ float get_word_score(Dictionary* dictionary, hash_t hash) {
 	// int length;
 	uint64_t total;
 
-	dictionary_get_entry(dictionary, hash,/* buffer, &length, sizeof(buffer), */ &word_count);
+	dictionary_get_entry(dictionary, hash, &word_count);
 	total = dictionary_get_words_total(dictionary);
 
 	float l = log((float)word_count / (float)total);
@@ -138,7 +140,7 @@ static void _input_token_callback(void* _opaque, const char* word, int length) {
 
 	if (!dictionary_contains_word(data->dictionary, hash)) {
 #if DEBUG
-		printf("Skip [");
+		printf("not in dictionary: [");
 		for (i = 0; i < length; i++) {
 			putchar(word[i]);
 		}
@@ -147,7 +149,7 @@ static void _input_token_callback(void* _opaque, const char* word, int length) {
 		return;
 	}
 #if DEBUG
-	printf("For [");
+	printf("[");
 	for (i = 0; i < length; i++) {
 		putchar(word[i]);
 	}
@@ -191,45 +193,80 @@ int build_index() {
 
 // TODO: dilution: score /= delka fortunu v tokenech
 
-void find_similar() {
-	dictionary_load(dictionary, "index.dat");
-
+uint64_t pick_for_input(char* input, uint64_t avoid) {
+	uint64_t fortune;
 	FortuneSet* fs;
 	fortune_set_init(&fs);
 
-	char line[500];
+	for_each_token(input, & (input_token_callback_data) {
+		.dictionary = dictionary,
+		.fortune_set = fs
+	}, _input_token_callback);
+
+	if (fortune_set_is_empty(fs)) {
+		error("TODO: pick a random fortune");
+		exit(1);
+	} else {
+		fortune = fortune_set_pick(fs, avoid);
+	}
+
+	fortune_set_destroy(&fs);
+	return fortune;
+}
+
+void read_fortune(uint64_t fortune, char* buffer) {
+	strcpy(buffer, "");
+	fseek(fortunes, fortune, SEEK_SET);
+	char line[256];
+
+	while (!feof(fortunes)) {
+		if (!fgets(line, sizeof(line), fortunes)) {
+			if (feof(fortunes)) break;
+			error("Error reading!");
+			break;
+		}
+		if (strcmp(line, "%\n") == 0) break;
+		strcpy(buffer + strlen(buffer), line);
+	}
+}
+
+void find_similar(bool do_continuous, int continuous_interval) {
+	dictionary_load(dictionary, "index.dat");
+
+	char input[1024]; // TODO: tohle je zle maximum.
+
 	while (!feof(stdin)) {
-		if (!fgets(line, sizeof(line), stdin)) {
+		if (!fgets(input + strlen(input), sizeof(input) - strlen(input), stdin)) {
 			if (feof(stdin)) break;
 			error("Failed to read from stdin!");
 			break;
 		}
-
-		for_each_token(line, & (input_token_callback_data) {
-			.dictionary = dictionary,
-			.fortune_set = fs
-		}, _input_token_callback);
 	}
 
-	if (fortune_set_is_empty(fs)) {
-		error("TODO: pick a random fortune");
+	if (do_continuous) {
+		uint64_t fortune = pick_for_input(input, -1);
+		do {
+			print_fortune(fortune);
+			read_fortune(fortune, input);
+			fortune = pick_for_input(input, fortune);
+			sleep(continuous_interval);
+		} while (true);
 	} else {
-		print_fortune(fortune_set_pick(fs, -1));
+		print_fortune(pick_for_input(input, -1));
 	}
-
-	fortune_set_destroy(&fs);
 }
 
 // TODO: specifikovat soubor?
 // TODO: continuous?
 void show_usage(const char* program) {
-	printf("Usage: %s [--rebuild-index]\n", program);
-	printf("\tIf the --rebuild-index option is given, the program rebuilds the index.\n");
+	printf("Usage: %s [--rebuild-index | --continuous]\n", program);
+	printf("\t--rebuild-index: rebuild the fortune index\n");
+	printf("\t--continuous: \"stream-of-consciousness mode\"\n");
 }
 
 int main(int argc, char** argv) {
 	int f = 0;
-	bool do_build_index = false;
+	bool do_build_index = false, do_continuous = false;
 
 	(void) argc; (void) argv;
 
@@ -244,8 +281,10 @@ int main(int argc, char** argv) {
 	dictionary_init(&dictionary);
 
 	if (argc > 1) {
-		if (strcmp(argv[1], "--rebuild-index") == 0) {
+		if (argc == 2 && strcmp(argv[1], "--rebuild-index") == 0) {
 			do_build_index = true;
+		} else if (argc == 2 && strcmp(argv[1], "--continuous") == 0) {
+			do_continuous = true;
 		} else {
 			show_usage(argv[0]);
 			f = 1;
@@ -262,7 +301,7 @@ int main(int argc, char** argv) {
 		goto exit;
 	}
 
-	find_similar();
+	find_similar(do_continuous, 10);
 
 exit:
 	dictionary_destroy(&dictionary); // TODO takeback
