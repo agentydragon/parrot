@@ -9,6 +9,6 @@ typedef uint32_t hash_t;
 
 void error(const char* format, ...);
 
-#define DEBUG false
+#define DEBUG true
 
 #endif

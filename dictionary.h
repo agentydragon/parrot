@@ -17,6 +17,8 @@ void dictionary_insert_word(Dictionary* dictionary, hash_t hash, uint64_t fortun
 void dictionary_get_entry(Dictionary* dictionary, hash_t hash, int* word_count);
 void dictionary_for_each_word_fortune(Dictionary* dictionary, hash_t hash, void (*callback)(void* opaque, uint64_t fortune), void* opaque);
 bool dictionary_contains_word(Dictionary* dictionary, hash_t hash);
+void dictionary_insert_fortune(Dictionary* dictionary, uint64_t fortune, int length);
+uint64_t dictionary_get_random_fortune(Dictionary* dictionary);
 
 int dictionary_save(Dictionary* dictionary, const char* filename);
 int dictionary_load(Dictionary* dictionary, const char* filename);

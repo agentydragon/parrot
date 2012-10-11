@@ -232,3 +232,12 @@ close_and_die:
 	fclose(f);
 	return 0;
 }
+
+void dictionary_insert_fortune(Dictionary* this, uint64_t fortune, int length) {
+	error("TODO: insert_fortune");
+}
+
+uint64_t dictionary_get_random_fortune(Dictionary* this) {
+	error("TODO: get_random_fortune");
+	return 1;
+}

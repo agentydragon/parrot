@@ -1,16 +1,16 @@
+#include "common.h"
+#include "dictionary.h"
+#include "fortune-set.h"
+#include "tokenizer.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <ctype.h>
 #include <math.h>
 #include <unistd.h>
 #include <time.h>
 
 #include <stdarg.h>
-
-#include "common.h"
-#include "dictionary.h"
-#include "fortune-set.h"
 
 void error(const char* format, ...) {
 	va_list args;
@@ -19,10 +19,6 @@ void error(const char* format, ...) {
 	vprintf(format, args);
 	va_end(args);
 	printf("\n");
-}
-
-bool is_word_char(char c) {
-	return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9');
 }
 
 // A FNV hash over a token
@@ -39,56 +35,29 @@ hash_t get_hash(const char* word, int length) {
 Dictionary* dictionary;
 FILE* fortunes;
 
-void for_each_token(char* line, void* opaque, void (*callback)(void* opaque, const char* word, int length)) {
-#if DEBUG
-	printf("tokenizing [%s]\n", line);
-	const char* i;
-#endif
-	char* start = line, *end = line;
-	while (*end) {
-		*end = tolower(*end);
-		if (is_word_char(*end)) {
-			end++;
-		} else {
-			if (start != end) {
-#if DEBUG
-				printf("[");
-				for (i = start; i < end; i++) {
-					putchar(*i);
-				}
-				printf("] ");
-#endif
-
-				callback(opaque, start, end - start);
-			}
-			start = end;
-			while (!is_word_char(*start) && *start) {
-				start++;
-			}
-			end = start;
-		}
-	}
-#if DEBUG
-	printf("\n");
-#endif
-}
-
-struct Opaq {
+typedef struct {
 	Dictionary* dictionary;
 	uint64_t fortune;
-};
+	int length;
+} fortune_token_callback_data;
 
-void _callback(void* _op, const char* word, int length) {
+static void _fortune_token_callback(void* _opaque, const char* word, int length) {
 	(void) word; (void) length;
-	struct Opaq* op = _op;
+	fortune_token_callback_data* data = _opaque;
 	hash_t hash = get_hash(word, length);
-	dictionary_insert_word(op->dictionary, hash, op->fortune);
+	dictionary_insert_word(data->dictionary, hash, data->fortune);
+	data->length++;
 }
 
-void load_fortune(FILE* file) {
+static void load_fortune(FILE* file) {
 	char buffer[256] = { 0 };
 
 	uint64_t fortune = ftell(file);
+	fortune_token_callback_data callback_data = {
+		.dictionary = dictionary,
+		.fortune = fortune,
+		.length = 0
+	};
 	// printf("F #%ld: ", fortune);
 	while (!feof(file)) {
 		if (!fgets(buffer, sizeof(buffer), file)) {
@@ -104,21 +73,11 @@ void load_fortune(FILE* file) {
 #if DEBUG
 		printf("%s\n", buffer);
 #endif
-		struct Opaq op = {
-			.dictionary = dictionary,
-			.fortune = fortune
-		};
-		void* opaque = &op;
-		for_each_token(buffer, opaque, _callback);
+		for_each_token(buffer, &callback_data, _fortune_token_callback);
 	}
 
-	// TODO: +final token
+	dictionary_insert_fortune(dictionary, fortune, callback_data.length);
 }
-
-struct Opaq2 {
-	Dictionary* dictionary;
-	FortuneSet* fortune_set;
-};
 
 void print_fortune(uint64_t fortune) {
 	// printf("Fortune at [%ld]: \n", fortune);
@@ -149,29 +108,35 @@ float get_word_score(Dictionary* dictionary, hash_t hash) {
 	return l * l;
 }
 
-struct Opaq3 {
+typedef struct {
 	FortuneSet* fortune_set;
 	Dictionary* dictionary;
 	hash_t hash;
-};
+} matching_fortune_callback_data;
 
-void _callback3(void* _op, uint64_t fortune) {
-	struct Opaq3* op = _op;
+static void _matching_fortune_callback(void* _opaque, uint64_t fortune) {
+	matching_fortune_callback_data* data = _opaque;
 #if DEBUG
 	printf("%ld ", fortune);
 #endif
-	fortune_set_add_score(op->fortune_set, fortune, get_word_score(op->dictionary, op->hash));
+	float score = get_word_score(data->dictionary, data->hash);
+	fortune_set_add_score(data->fortune_set, fortune, score);
 //	print_fortune(fortune);
 }
 
-void _callback2(void* _op, const char* word, int length) {
-	struct Opaq2* op = _op;
+typedef struct {
+	Dictionary* dictionary;
+	FortuneSet* fortune_set;
+} input_token_callback_data;
+
+static void _input_token_callback(void* _opaque, const char* word, int length) {
+	input_token_callback_data* data = _opaque;
 #if DEBUG
 	int i;
 #endif
 	hash_t hash = get_hash(word, length);
 
-	if (!dictionary_contains_word(op->dictionary, hash)) {
+	if (!dictionary_contains_word(data->dictionary, hash)) {
 #if DEBUG
 		printf("Skip [");
 		for (i = 0; i < length; i++) {
@@ -188,12 +153,11 @@ void _callback2(void* _op, const char* word, int length) {
 	}
 	printf("]: \n");
 #endif
-	struct Opaq3 op3 = {
-		.dictionary = op->dictionary,
-		.fortune_set = op->fortune_set,
+	dictionary_for_each_word_fortune(data->dictionary, hash, _matching_fortune_callback, & (matching_fortune_callback_data) {
+		.dictionary = data->dictionary,
+		.fortune_set = data->fortune_set,
 		.hash = hash
-	};
-	dictionary_for_each_word_fortune(op->dictionary, hash, _callback3, &op3);
+	});
 #if DEBUG
 	printf("\nThat's all.\n");
 #endif
@@ -232,33 +196,76 @@ void find_similar() {
 
 	FortuneSet* fs;
 	fortune_set_init(&fs);
-	struct Opaq2 op = {
-		.dictionary = dictionary,
-		.fortune_set = fs
-	};
 
-	char find[] = "Linux is better than Windows.";
-	for_each_token(find, &op, _callback2);
+	char line[500];
+	while (!feof(stdin)) {
+		if (!fgets(line, sizeof(line), stdin)) {
+			if (feof(stdin)) break;
+			error("Failed to read from stdin!");
+			break;
+		}
 
-	print_fortune(fortune_set_pick(fs, 2033149));
+		for_each_token(line, & (input_token_callback_data) {
+			.dictionary = dictionary,
+			.fortune_set = fs
+		}, _input_token_callback);
+	}
+
+	if (fortune_set_is_empty(fs)) {
+		error("TODO: pick a random fortune");
+	} else {
+		print_fortune(fortune_set_pick(fs, -1));
+	}
+
 	fortune_set_destroy(&fs);
 }
 
+// TODO: specifikovat soubor?
+// TODO: continuous?
+void show_usage(const char* program) {
+	printf("Usage: %s [--rebuild-index]\n", program);
+	printf("\tIf the --rebuild-index option is given, the program rebuilds the index.\n");
+}
+
 int main(int argc, char** argv) {
+	int f = 0;
+	bool do_build_index = false;
+
 	(void) argc; (void) argv;
+
 	srand(time(NULL));
 	fortunes = fopen("fortunes", "r");
-	dictionary_init(&dictionary);
 
 	if (!fortunes) {
 		error("Failed to open fortunes file!");
-		return 0;
+		return 3;
 	}
 
-	//build_index();
+	dictionary_init(&dictionary);
+
+	if (argc > 1) {
+		if (strcmp(argv[1], "--rebuild-index") == 0) {
+			do_build_index = true;
+		} else {
+			show_usage(argv[0]);
+			f = 1;
+			goto exit;
+		}
+	}
+
+	if (do_build_index) {
+		if (!build_index()) {
+			error("Failed to build index.");
+			f = 2;
+			goto exit;
+		}
+		goto exit;
+	}
+
 	find_similar();
 
+exit:
 	dictionary_destroy(&dictionary); // TODO takeback
 	fclose(fortunes);
-	return 0;
+	return f;
 }

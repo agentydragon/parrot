@@ -1,4 +1,5 @@
 #include "fortune-set.h"
+#include "common.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -54,6 +55,11 @@ int _compareEntries(const void* _a, const void* _b) {
 }
 
 uint64_t fortune_set_pick(FortuneSet* this, uint64_t avoid) {
+	if (fortune_set_is_empty(this)) {
+		error("Cannot pick a fortune from an empty set!");
+		return -1;
+	}
+
 	qsort(this->entries, this->entriesSize, sizeof(*this->entries), _compareEntries);
 	assert(this->entries[0].score >= this->entries[1].score);
 
@@ -72,24 +78,34 @@ uint64_t fortune_set_pick(FortuneSet* this, uint64_t avoid) {
 		j++;
 	}
 
-	//printf("min=%f max=%f\n", min, max);
+#if DEBUG
+	printf("min=%f max=%f\n", min, max);
+#endif
 
 	float total;
 	for (i = 0, total = 0; i < j; i++) {
-		scores[i] = (scores[i] - min) / (max - min);
-		// printf("score[%d] (%ld) = %f\n", i, fortunes[i], scores[i]);
+		if (max != min) {
+			scores[i] = (scores[i] - min) / (max - min);
+		}
+#if DEBUG
+		printf("score[%ld] (%ld) = %f\n", i, fortunes[i], scores[i]);
+#endif
 		total += scores[i];
 	}
-	// printf("total = %f\n", total);
+#if DEBUG
+	printf("total = %f\n", total);
+#endif
 
 	float r = total * ((float)rand() / (float)RAND_MAX);
-	// printf("rand = %f\n", r);
+#if DEBUG
+	printf("rand = %f\n", r);
+#endif
 	for (i = 0; i < j; i++) {
 		r -= scores[i];
 		if (r <= 0) return fortunes[i];
 	}
 
-	exit(1);
+	error("Failed to pick a fortune!");
 	return -1;
 
 	/*
@@ -99,4 +115,8 @@ uint64_t fortune_set_pick(FortuneSet* this, uint64_t avoid) {
 	exit(1);
 	return -1;
 	*/
+}
+
+bool fortune_set_is_empty(FortuneSet* this) {
+	return this->entriesSize == 0;
 }
