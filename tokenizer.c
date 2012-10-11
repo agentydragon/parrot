@@ -4,6 +4,8 @@
 #include <stdio.h>
 #include <ctype.h>
 
+// TODO: english stemming?
+
 static bool is_word_char(char c) {
 	return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9');
 }

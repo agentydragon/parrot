@@ -86,6 +86,7 @@ uint64_t fortune_set_pick(FortuneSet* this, uint64_t avoid) {
 	for (i = 0, total = 0; i < j; i++) {
 		if (max != min) {
 			scores[i] = (scores[i] - min) / (max - min);
+			if (scores[i] < 0.01f) scores[i] = 0.01f;
 		}
 #if DEBUG
 		printf("score[%ld] (%ld) = %f\n", i, fortunes[i], scores[i]);
