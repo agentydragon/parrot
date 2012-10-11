@@ -53,6 +53,4 @@ void for_each_token(char* line, void (*callback)(void* opaque, const char* word,
 #if DEBUG
 	printf("\n");
 #endif
-
-	// TODO: +final token
 }
