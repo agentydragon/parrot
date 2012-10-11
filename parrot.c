@@ -79,7 +79,7 @@ static void load_fortune(Index* index, FILE* file) {
 	index_insert_fortune(index, fortune, callback_data.length);
 }
 
-void print_fortune(uint64_t fortune) {
+static void print_fortune(uint64_t fortune) {
 #if DEBUG
 	printf("Fortune at [%ld]: \n", fortune);
 #endif
@@ -97,10 +97,8 @@ void print_fortune(uint64_t fortune) {
 	}
 }
 
-float get_word_score(Index* index, hash_t hash) {
-	// char buffer[200];
+static float get_word_score(Index* index, hash_t hash) {
 	int word_count;
-	// int length;
 	uint64_t total;
 
 	index_get_entry(index, hash, &word_count);
@@ -123,7 +121,6 @@ static void _matching_fortune_callback(void* _opaque, uint64_t fortune) {
 #endif
 	float score = get_word_score(data->index, data->hash);
 	fortune_set_add_score(data->fortune_set, fortune, score);
-//	print_fortune(fortune);
 }
 
 typedef struct {
@@ -204,8 +201,7 @@ static uint64_t pick_for_input(Index* index, char* input, uint64_t avoid) {
 	});
 
 	if (fortune_set_is_empty(fs)) {
-		error("TODO: pick a random fortune");
-		exit(1);
+		fortune = index_get_random_fortune(index);
 	} else {
 		fortune = fortune_set_pick(fs, avoid);
 	}
@@ -214,7 +210,7 @@ static uint64_t pick_for_input(Index* index, char* input, uint64_t avoid) {
 	return fortune;
 }
 
-void read_fortune(uint64_t fortune, char* buffer) {
+static void read_fortune(uint64_t fortune, char* buffer) {
 	strcpy(buffer, "");
 	fseek(fortunes, fortune, SEEK_SET);
 	char line[256];
@@ -257,7 +253,7 @@ static void find_similar(Index* index, bool do_continuous, int continuous_interv
 }
 
 // TODO: specifikovat soubor?
-void show_usage(const char* program) {
+static void show_usage(const char* program) {
 	printf("Usage: %s [--rebuild-index | --continuous]\n", program);
 	printf("\t--rebuild-index: rebuild the fortune index\n");
 	printf("\t--continuous: \"stream-of-consciousness mode\"\n");
