@@ -10,7 +10,7 @@ static bool is_word_char(char c) {
 	return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9');
 }
 
-void for_each_token(char* line, void* opaque, void (*callback)(void* opaque, const char* word, int length)) {
+void for_each_token(char* line, void (*callback)(void* opaque, const char* word, int length), void* opaque) {
 #if DEBUG
 	printf("tokenizing [%s]\n", line);
 	const char* i;

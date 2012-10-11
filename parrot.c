@@ -1,5 +1,5 @@
 #include "common.h"
-#include "dictionary.h"
+#include "index.h"
 #include "fortune-set.h"
 #include "tokenizer.h"
 
@@ -32,11 +32,11 @@ hash_t get_hash(const char* word, int length) {
 	return j;
 }
 
-Dictionary* dictionary;
+// Index* index;
 FILE* fortunes;
 
 typedef struct {
-	Dictionary* dictionary;
+	Index* index;
 	uint64_t fortune;
 	int length;
 } fortune_token_callback_data;
@@ -45,16 +45,16 @@ static void _fortune_token_callback(void* _opaque, const char* word, int length)
 	(void) word; (void) length;
 	fortune_token_callback_data* data = _opaque;
 	hash_t hash = get_hash(word, length);
-	dictionary_insert_word(data->dictionary, hash, data->fortune);
+	index_insert_word(data->index, hash, data->fortune);
 	data->length++;
 }
 
-static void load_fortune(FILE* file) {
+static void load_fortune(Index* index, FILE* file) {
 	char buffer[256] = { 0 };
 
 	uint64_t fortune = ftell(file);
 	fortune_token_callback_data callback_data = {
-		.dictionary = dictionary,
+		.index = index,
 		.fortune = fortune,
 		.length = 0
 	};
@@ -73,10 +73,10 @@ static void load_fortune(FILE* file) {
 #if DEBUG
 		printf("%s\n", buffer);
 #endif
-		for_each_token(buffer, &callback_data, _fortune_token_callback);
+		for_each_token(buffer, _fortune_token_callback, &callback_data);
 	}
 
-	dictionary_insert_fortune(dictionary, fortune, callback_data.length);
+	index_insert_fortune(index, fortune, callback_data.length);
 }
 
 void print_fortune(uint64_t fortune) {
@@ -97,14 +97,14 @@ void print_fortune(uint64_t fortune) {
 	}
 }
 
-float get_word_score(Dictionary* dictionary, hash_t hash) {
+float get_word_score(Index* index, hash_t hash) {
 	// char buffer[200];
 	int word_count;
 	// int length;
 	uint64_t total;
 
-	dictionary_get_entry(dictionary, hash, &word_count);
-	total = dictionary_get_words_total(dictionary);
+	index_get_entry(index, hash, &word_count);
+	total = index_get_words_total(index);
 
 	float l = log((float)word_count / (float)total);
 	return l * l;
@@ -112,7 +112,7 @@ float get_word_score(Dictionary* dictionary, hash_t hash) {
 
 typedef struct {
 	FortuneSet* fortune_set;
-	Dictionary* dictionary;
+	Index* index;
 	hash_t hash;
 } matching_fortune_callback_data;
 
@@ -121,13 +121,13 @@ static void _matching_fortune_callback(void* _opaque, uint64_t fortune) {
 #if DEBUG
 	printf("%ld ", fortune);
 #endif
-	float score = get_word_score(data->dictionary, data->hash);
+	float score = get_word_score(data->index, data->hash);
 	fortune_set_add_score(data->fortune_set, fortune, score);
 //	print_fortune(fortune);
 }
 
 typedef struct {
-	Dictionary* dictionary;
+	Index* index;
 	FortuneSet* fortune_set;
 } input_token_callback_data;
 
@@ -138,9 +138,9 @@ static void _input_token_callback(void* _opaque, const char* word, int length) {
 #endif
 	hash_t hash = get_hash(word, length);
 
-	if (!dictionary_contains_word(data->dictionary, hash)) {
+	if (!index_contains_word(data->index, hash)) {
 #if DEBUG
-		printf("not in dictionary: [");
+		printf("not in index: [");
 		for (i = 0; i < length; i++) {
 			putchar(word[i]);
 		}
@@ -155,8 +155,8 @@ static void _input_token_callback(void* _opaque, const char* word, int length) {
 	}
 	printf("]: \n");
 #endif
-	dictionary_for_each_word_fortune(data->dictionary, hash, _matching_fortune_callback, & (matching_fortune_callback_data) {
-		.dictionary = data->dictionary,
+	index_for_each_word_fortune(data->index, hash, _matching_fortune_callback, & (matching_fortune_callback_data) {
+		.index = data->index,
 		.fortune_set = data->fortune_set,
 		.hash = hash
 	});
@@ -165,26 +165,26 @@ static void _input_token_callback(void* _opaque, const char* word, int length) {
 #endif
 }
 
-int build_index() {
+static int build_index(Index* index) {
 	printf("Tokenizing fortunes...\n");
 	// TODO: more files...
 
 	while (!feof(fortunes)) {
-		load_fortune(fortunes);
+		load_fortune(index, fortunes);
 	}
 
 	hash_t hashes[100];
 	const int count = sizeof(hashes) / sizeof(*hashes);
 	int i, word_count;
 	printf("Removing top words...\n");
-	dictionary_get_top_entries(dictionary, hashes, count);
+	index_get_top_entries(index, hashes, count);
 	for (i = 0; i < count; i++) {
-		dictionary_get_entry(dictionary, hashes[i], &word_count);
-		dictionary_forget_word(dictionary, hashes[i]);
+		index_get_entry(index, hashes[i], &word_count);
+		index_forget_word(index, hashes[i]);
 	}
 
 	printf("Saving index...\n");
-	dictionary_save(dictionary, "index.dat");
+	index_save(index, "index.dat");
 
 	printf("Done.\n");
 
@@ -193,15 +193,15 @@ int build_index() {
 
 // TODO: dilution: score /= delka fortunu v tokenech
 
-uint64_t pick_for_input(char* input, uint64_t avoid) {
+static uint64_t pick_for_input(Index* index, char* input, uint64_t avoid) {
 	uint64_t fortune;
 	FortuneSet* fs;
 	fortune_set_init(&fs);
 
-	for_each_token(input, & (input_token_callback_data) {
-		.dictionary = dictionary,
+	for_each_token(input, _input_token_callback, & (input_token_callback_data) {
+		.index = index,
 		.fortune_set = fs
-	}, _input_token_callback);
+	});
 
 	if (fortune_set_is_empty(fs)) {
 		error("TODO: pick a random fortune");
@@ -230,8 +230,8 @@ void read_fortune(uint64_t fortune, char* buffer) {
 	}
 }
 
-void find_similar(bool do_continuous, int continuous_interval) {
-	dictionary_load(dictionary, "index.dat");
+static void find_similar(Index* index, bool do_continuous, int continuous_interval) {
+	index_load(index, "index.dat");
 
 	char input[1024]; // TODO: tohle je zle maximum.
 
@@ -244,20 +244,19 @@ void find_similar(bool do_continuous, int continuous_interval) {
 	}
 
 	if (do_continuous) {
-		uint64_t fortune = pick_for_input(input, -1);
+		uint64_t fortune = pick_for_input(index, input, -1);
 		do {
 			print_fortune(fortune);
 			read_fortune(fortune, input);
-			fortune = pick_for_input(input, fortune);
+			fortune = pick_for_input(index, input, fortune);
 			sleep(continuous_interval);
 		} while (true);
 	} else {
-		print_fortune(pick_for_input(input, -1));
+		print_fortune(pick_for_input(index, input, -1));
 	}
 }
 
 // TODO: specifikovat soubor?
-// TODO: continuous?
 void show_usage(const char* program) {
 	printf("Usage: %s [--rebuild-index | --continuous]\n", program);
 	printf("\t--rebuild-index: rebuild the fortune index\n");
@@ -278,7 +277,8 @@ int main(int argc, char** argv) {
 		return 3;
 	}
 
-	dictionary_init(&dictionary);
+	Index* index;
+	index_init(&index);
 
 	if (argc > 1) {
 		if (argc == 2 && strcmp(argv[1], "--rebuild-index") == 0) {
@@ -293,7 +293,7 @@ int main(int argc, char** argv) {
 	}
 
 	if (do_build_index) {
-		if (!build_index()) {
+		if (!build_index(index)) {
 			error("Failed to build index.");
 			f = 2;
 			goto exit;
@@ -301,10 +301,10 @@ int main(int argc, char** argv) {
 		goto exit;
 	}
 
-	find_similar(do_continuous, 10);
+	find_similar(index, do_continuous, 10);
 
 exit:
-	dictionary_destroy(&dictionary); // TODO takeback
+	index_destroy(&index); // TODO takeback
 	fclose(fortunes);
 	return f;
 }

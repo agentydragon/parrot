@@ -1,4 +1,4 @@
-#include "dictionary.h"
+#include "index.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -13,14 +13,14 @@ typedef struct {
 	uint64_t fortunesCount, fortunesCapacity; // TODO
 } Entry;
 
-struct Dictionary {
+struct Index {
 	Entry* entries;
 	uint64_t entryCount, entryCapacity;
 
 	uint64_t words_total;
 };
 
-static void _realloc_entries(Dictionary* this) {
+static void _realloc_entries(Index* this) {
 	while (this->entryCapacity < this->entryCount) {
 		if (!this->entryCapacity) {
 			this->entryCapacity = 64;
@@ -42,22 +42,22 @@ static void _realloc_fortunes(Entry* entry) {
 	entry->fortunes = realloc(entry->fortunes, entry->fortunesCapacity * sizeof(*entry->fortunes));
 }
 
-void dictionary_init(Dictionary** _this) {
-	Dictionary* dictionary = malloc(sizeof(Dictionary));
-	dictionary->entries = NULL;
-	dictionary->entryCount = dictionary->entryCapacity = 0;
+void index_init(Index** _this) {
+	Index* index = malloc(sizeof(Index));
+	index->entries = NULL;
+	index->entryCount = index->entryCapacity = 0;
 
-	dictionary->words_total = 0;
+	index->words_total = 0;
 	// TODO: chci to rychlejsi...
 	
-	*_this = dictionary;
+	*_this = index;
 }
 
-void dictionary_destroy(Dictionary** _dictionary) {
-	free(*_dictionary);
+void index_destroy(Index** _index) {
+	free(*_index);
 }
 
-void dictionary_insert_word(Dictionary* this, hash_t hash, uint64_t fortune) {
+void index_insert_word(Index* this, hash_t hash, uint64_t fortune) {
 	uint64_t i;
 	this->words_total++;
 
@@ -92,7 +92,7 @@ void dictionary_insert_word(Dictionary* this, hash_t hash, uint64_t fortune) {
 	entry->fortunes[0] = fortune;
 }
 
-void dictionary_get_entry(Dictionary* this, hash_t hash, /*char* word, int *length, int capacity, */ int* word_count) {
+void index_get_entry(Index* this, hash_t hash, /*char* word, int *length, int capacity, */ int* word_count) {
 	uint64_t i;
 
 	for (i = 0; i < this->entryCount; i++) {
@@ -113,7 +113,7 @@ static int _compareEntries(const void* _a, const void* _b) {
 	return b->count - a->count;
 }
 
-void dictionary_get_top_entries(Dictionary* this, hash_t *hashes, int count) {
+void index_get_top_entries(Index* this, hash_t *hashes, int count) {
 	int i;
 	qsort(this->entries, this->entryCount, sizeof(Entry), _compareEntries);
 
@@ -122,7 +122,7 @@ void dictionary_get_top_entries(Dictionary* this, hash_t *hashes, int count) {
 	}
 }
 
-void dictionary_forget_word(Dictionary* this, hash_t hash) {
+void index_forget_word(Index* this, hash_t hash) {
 	uint64_t i;
 	for (i = 0; i < this->entryCount; i++) {
 		if (this->entries[i].hash == hash) break;
@@ -131,7 +131,7 @@ void dictionary_forget_word(Dictionary* this, hash_t hash) {
 	this->entryCount--;
 }
 
-uint64_t dictionary_get_words_total(Dictionary* this) {
+uint64_t index_get_words_total(Index* this) {
 	return this->words_total;
 }
 
@@ -142,7 +142,7 @@ int _compareFortunes(const void* _a, const void* _b) {
 	return 0;
 }
 
-void dictionary_for_each_word_fortune(Dictionary* this, hash_t hash, void (*callback)(void* opaque, uint64_t fortune), void* opaque) {
+void index_for_each_word_fortune(Index* this, hash_t hash, void (*callback)(void* opaque, uint64_t fortune), void* opaque) {
 	uint64_t i, j;
 	for (i = 0; i < this->entryCount; i++) {
 		if (this->entries[i].hash == hash) {
@@ -154,7 +154,7 @@ void dictionary_for_each_word_fortune(Dictionary* this, hash_t hash, void (*call
 	}
 }
 
-bool dictionary_contains_word(Dictionary* this, hash_t hash) {
+bool index_contains_word(Index* this, hash_t hash) {
 	uint64_t i;
 	for (i = 0; i < this->entryCount; i++) {
 		if (this->entries[i].hash == hash) {
@@ -164,15 +164,15 @@ bool dictionary_contains_word(Dictionary* this, hash_t hash) {
 	return false;
 }
 
-int dictionary_save(Dictionary* this, const char* filename) {
+int index_save(Index* this, const char* filename) {
 	FILE* f = fopen(filename, "w");
 	if (!f) {
-		error("Failed to open dictionary file %s for writing.", filename);
+		error("Failed to open index file %s for writing.", filename);
 		return 0;
 	}
 	if (fwrite(&this->words_total, sizeof(this->words_total), 1, f) != 1 ||
 		fwrite(&this->entryCount, sizeof(this->entryCount), 1, f) != 1) {
-		error("Failed to write to dictionary file.");
+		error("Failed to write to index file.");
 		goto close_and_die;
 	}
 	
@@ -183,7 +183,7 @@ int dictionary_save(Dictionary* this, const char* filename) {
 			fwrite(&entry->count, sizeof(entry->count), 1, f) != 1 ||
 			fwrite(&entry->fortunesCount, sizeof(entry->fortunesCount), 1, f) != 1 ||
 			fwrite(entry->fortunes, sizeof(*entry->fortunes), entry->fortunesCount, f) != entry->fortunesCount) {
-			error("Failed to write token #%ld into dictionary file.", i);
+			error("Failed to write token #%ld into index file.", i);
 			goto close_and_die;
 		}
 	}
@@ -196,16 +196,16 @@ close_and_die:
 	return 0;
 }
 
-int dictionary_load(Dictionary* this, const char* filename) {
+int index_load(Index* this, const char* filename) {
 	FILE* f = fopen(filename, "r");
 	if (!f) {
-		error("Failed to open dictionary file %s for reading. Build it if it doesn't exist.", filename);
+		error("Failed to open index file %s for reading. Build it if it doesn't exist.", filename);
 		return 0;
 	}
 
 	if (fread(&this->words_total, sizeof(this->words_total), 1, f) != 1 ||
 		fread(&this->entryCount, sizeof(this->entryCount), 1, f) != 1) {
-		error("Failed to read data from dictionary file.");
+		error("Failed to read data from index file.");
 		goto close_and_die;
 	}
 	_realloc_entries(this);
@@ -216,12 +216,12 @@ int dictionary_load(Dictionary* this, const char* filename) {
 		if (fread(&entry->hash, sizeof(entry->hash), 1, f) != 1 ||
 			fread(&entry->count, sizeof(entry->count), 1, f) != 1 ||
 			fread(&entry->fortunesCount, sizeof(entry->fortunesCount), 1, f) != 1) {
-			error("Failed to read token #%ld data from dictionary file.", i);
+			error("Failed to read token #%ld data from index file.", i);
 		}
 		entry->fortunes = NULL;
 		_realloc_fortunes(entry);
 		if (fread(entry->fortunes, sizeof(*entry->fortunes), entry->fortunesCount, f) != entry->fortunesCount) {
-			error("Failed to read token #%ld fortune list from dictionary file.", i); 
+			error("Failed to read token #%ld fortune list from index file.", i); 
 		}
 	}
 
@@ -233,11 +233,11 @@ close_and_die:
 	return 0;
 }
 
-void dictionary_insert_fortune(Dictionary* this, uint64_t fortune, int length) {
+void index_insert_fortune(Index* this, uint64_t fortune, int length) {
 	error("TODO: insert_fortune");
 }
 
-uint64_t dictionary_get_random_fortune(Dictionary* this) {
+uint64_t index_get_random_fortune(Index* this) {
 	error("TODO: get_random_fortune");
 	return 1;
 }
