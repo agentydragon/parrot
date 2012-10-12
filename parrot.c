@@ -232,13 +232,16 @@ static void find_similar(Index* index, bool do_continuous, int continuous_interv
 	index_load(index, "index.dat");
 
 	char input[1024] = { 0 }; // TODO: tohle je zle maximum.
+	int i = 0, read;
 
 	while (!feof(stdin)) {
-		if (!fgets(input + strlen(input), sizeof(input) - strlen(input), stdin)) {
+		if (!(read = fread(input + i, 1, sizeof(input) - strlen(input), stdin))) {
 			if (feof(stdin)) break;
 			error("Failed to read from stdin!");
 			break;
 		}
+		i += read;
+		input[i] = '\0';
 	}
 
 	if (do_continuous) {
