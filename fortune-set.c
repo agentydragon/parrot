@@ -12,15 +12,15 @@ typedef struct {
 
 struct FortuneSet {
 	Entry* entries;
-	uint64_t entriesSize, entriesCapacity;
+	uint64_t entries_size, entries_cap;
 };
 
 void fortune_set_init(FortuneSet** _this) {
 	FortuneSet* this;
 	this = malloc(sizeof(*this));
-	this->entriesSize = 0;
-	this->entriesCapacity = 4;
-	this->entries = malloc(this->entriesCapacity * sizeof(*this->entries));
+	this->entries_size = 0;
+	this->entries_cap = 4;
+	this->entries = malloc(this->entries_cap * sizeof(*this->entries));
 	*_this = this;
 }
 
@@ -33,47 +33,58 @@ void fortune_set_destroy(FortuneSet** _this) {
 
 void fortune_set_add_score(FortuneSet* this, uint64_t fortune, float score) {
 	uint64_t i;
-	for (i = 0; i < this->entriesSize; i++) {
+	for (i = 0; i < this->entries_size; i++) {
 		Entry* entry = &this->entries[i];
 		if (entry->fortune == fortune) {
 			entry->score += score;
-			break;
+			return;
 		}
 	}
 
-	this->entriesSize++;
-	while (this->entriesCapacity < this->entriesSize) {
-		this->entriesCapacity <<= 1;
-		this->entries = realloc(this->entries, this->entriesCapacity * sizeof(*this->entries));
+	this->entries_size++;
+	while (this->entries_cap < this->entries_size) {
+		this->entries_cap <<= 1;
+		this->entries = realloc(this->entries, this->entries_cap * sizeof(*this->entries));
 	}
-	this->entries[this->entriesSize - 1].fortune = fortune;
-	this->entries[this->entriesSize - 1].score = score;
+	this->entries[this->entries_size - 1].fortune = fortune;
+	this->entries[this->entries_size - 1].score = score;
 }
 
-int _compareEntries(const void* _a, const void* _b) {
+static int _compare_entries(const void* _a, const void* _b) {
 	const Entry* a = _a, *b = _b;
 	if (a->score > b->score) return -1;
 	if (a->score < b->score) return 1;
 	return 0;
 }
 
-uint64_t fortune_set_pick(FortuneSet* this, uint64_t avoid) {
+static bool _array_contains(uint64_t* array, uint64_t size, uint64_t needle) {
+	uint64_t i = 0;
+	for (i = 0; i < size; i++) {
+		if (array[i] == needle) return true;
+	}
+	return false;
+}
+
+uint64_t fortune_set_pick(FortuneSet* this, uint64_t *avoid, uint64_t avoid_size) {
+	uint64_t i, j;
 	if (fortune_set_is_empty(this)) {
 		error("Cannot pick a fortune from an empty set!");
 		return -1;
 	}
 
-	qsort(this->entries, this->entriesSize, sizeof(*this->entries), _compareEntries);
+	qsort(this->entries, this->entries_size, sizeof(*this->entries), _compare_entries);
 	assert(this->entries[0].score >= this->entries[1].score);
 
-	uint64_t i, j;
-	float scores[10];
-	uint64_t fortunes[sizeof(scores) / sizeof(*scores)];
+	float scores[100];
+	const int N = sizeof(scores) / sizeof(*scores);
+	uint64_t fortunes[N];
 	float min, max;
 
-	for (i = 0, j = 0; j < sizeof(scores) / sizeof(*scores) && i < this->entriesSize; i++) {
+	for (i = 0, j = 0; j < N && i < this->entries_size; i++) {
 		Entry* entry = &this->entries[i];
-		if (entry->fortune == avoid) continue;
+		if (_array_contains(avoid, avoid_size, entry->fortune)) {
+			continue;
+		}
 		scores[j] = entry->score;
 		fortunes[j] = entry->fortune;
 		if (j == 0 || min > scores[j]) min = scores[j];
@@ -86,10 +97,12 @@ uint64_t fortune_set_pick(FortuneSet* this, uint64_t avoid) {
 #endif
 
 	float total;
+	float minimum_score = 1.0f / (float)N;
 	for (i = 0, total = 0; i < j; i++) {
 		if (max != min) {
 			scores[i] = (scores[i] - min) / (max - min);
-			if (scores[i] < 0.1f) scores[i] = 0.1f;
+			if (scores[i] < minimum_score)
+				scores[i] = minimum_score;
 		}
 #if DEBUG
 		printf("score[%ld] (%ld) = %f\n", i, fortunes[i], scores[i]);
@@ -113,7 +126,7 @@ uint64_t fortune_set_pick(FortuneSet* this, uint64_t avoid) {
 	return -1;
 
 	/*
-	for (i = 0; i < this->entriesSize; i++) {
+	for (i = 0; i < this->entries_size; i++) {
 		if (rand() % 2 == 0) return this->entries[i].fortune;
 	}
 	exit(1);
@@ -122,5 +135,5 @@ uint64_t fortune_set_pick(FortuneSet* this, uint64_t avoid) {
 }
 
 bool fortune_set_is_empty(FortuneSet* this) {
-	return this->entriesSize == 0;
+	return this->entries_size == 0;
 }

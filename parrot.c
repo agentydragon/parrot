@@ -9,6 +9,7 @@
 #include <math.h>
 #include <unistd.h>
 #include <time.h>
+#include <assert.h>
 
 #include <stdarg.h>
 
@@ -192,7 +193,7 @@ static int build_index(Index* index) {
 
 // TODO: dilution: score /= delka fortunu v tokenech
 
-static uint64_t pick_for_input(Index* index, char* input, uint64_t avoid) {
+static uint64_t pick_for_input(Index* index, char* input, uint64_t *avoid, uint64_t avoid_size) {
 	uint64_t fortune;
 	FortuneSet* fs;
 	fortune_set_init(&fs);
@@ -205,7 +206,7 @@ static uint64_t pick_for_input(Index* index, char* input, uint64_t avoid) {
 	if (fortune_set_is_empty(fs)) {
 		fortune = index_get_random_fortune(index);
 	} else {
-		fortune = fortune_set_pick(fs, avoid);
+		fortune = fortune_set_pick(fs, avoid, avoid_size);
 	}
 
 	fortune_set_destroy(&fs);
@@ -228,6 +229,20 @@ static void read_fortune(uint64_t fortune, char* buffer) {
 	}
 }
 
+static void backlog_push(uint64_t* backlog, int* size, const int cap, const uint64_t item) {
+	assert(*size <= cap);
+	int i;
+	if (*size == cap) {
+		for (i = 0; i < *size - 1; i++) {
+			backlog[i] = backlog[i + 1];
+		}
+		backlog[*size - 1] = item;
+	} else {
+		backlog[*size] = item;
+		*size = *size + 1;
+	}
+}
+
 static void find_similar(Index* index, bool do_continuous, int continuous_interval) {
 	index_load(index, "index.dat");
 
@@ -245,15 +260,18 @@ static void find_similar(Index* index, bool do_continuous, int continuous_interv
 	}
 
 	if (do_continuous) {
-		uint64_t fortune = pick_for_input(index, input, -1);
+		uint64_t backlog[5]; // Used to avoid cycles.
+		int backlog_size = 0;
+		uint64_t fortune;
 		do {
+			fortune = pick_for_input(index, input, backlog, backlog_size);
+			backlog_push(backlog, &backlog_size, sizeof(backlog) / sizeof(*backlog), fortune);
 			print_fortune(fortune);
 			read_fortune(fortune, input);
-			fortune = pick_for_input(index, input, fortune);
 			sleep(continuous_interval);
 		} while (true);
 	} else {
-		print_fortune(pick_for_input(index, input, -1));
+		print_fortune(pick_for_input(index, input, NULL, 0));
 	}
 }
 
@@ -299,7 +317,7 @@ int main(int argc, char** argv) {
 			f = 2;
 		}
 	} else {
-		find_similar(index, do_continuous, 10);
+		find_similar(index, do_continuous, 3);
 	}
 
 exit:
