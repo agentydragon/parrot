@@ -19,6 +19,7 @@ void index_for_each_word_fortune(Index* index, hash_t hash, void (*callback)(voi
 bool index_contains_word(Index* index, hash_t hash);
 void index_insert_fortune(Index* index, uint64_t fortune, int length);
 uint64_t index_get_random_fortune(Index* index);
+uint64_t index_get_fortune_length(Index* this, uint64_t fortune);
 
 int index_save(Index* index, const char* filename);
 int index_load(Index* index, const char* filename);

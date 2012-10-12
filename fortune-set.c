@@ -50,6 +50,14 @@ void fortune_set_add_score(FortuneSet* this, uint64_t fortune, float score) {
 	this->entries[this->entries_size - 1].score = score;
 }
 
+void fortune_set_adjust_score(FortuneSet* this, float (*get_new_score)(void* opaque, uint64_t fortune, float former_score), void* opaque) {
+	uint64_t i;
+	for (i = 0; i < this->entries_size; i++) {
+		Entry* entry = &this->entries[i];
+		entry->score = get_new_score(opaque, entry->fortune, entry->score);
+	}
+}
+
 static int _compare_entries(const void* _a, const void* _b) {
 	const Entry* a = _a, *b = _b;
 	if (a->score > b->score) return -1;
@@ -73,9 +81,10 @@ uint64_t fortune_set_pick(FortuneSet* this, uint64_t *avoid, uint64_t avoid_size
 	}
 
 	qsort(this->entries, this->entries_size, sizeof(*this->entries), _compare_entries);
-	assert(this->entries[0].score >= this->entries[1].score);
+	assert(this->entries_size < 2 || this->entries[0].score >= this->entries[1].score);
 
-	float scores[100];
+	// Find 10 fortunes with the best score, but outside the array of avoided fortunes.
+	float scores[10];
 	const int N = sizeof(scores) / sizeof(*scores);
 	uint64_t fortunes[N];
 	float min, max;
@@ -97,12 +106,9 @@ uint64_t fortune_set_pick(FortuneSet* this, uint64_t *avoid, uint64_t avoid_size
 #endif
 
 	float total;
-	float minimum_score = 1.0f / (float)N;
 	for (i = 0, total = 0; i < j; i++) {
 		if (max != min) {
 			scores[i] = (scores[i] - min) / (max - min);
-			if (scores[i] < minimum_score)
-				scores[i] = minimum_score;
 		}
 #if DEBUG
 		printf("score[%ld] (%ld) = %f\n", i, fortunes[i], scores[i]);

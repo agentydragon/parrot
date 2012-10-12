@@ -1,0 +1,18 @@
+Parrot - a fortune picker.
+
+Expects a fortune file in ./fortunes. Saves some indexing data to ./index.dat.
+
+Usage:
+	./parrot --rebuild-index = rebuilds the index. This needs to be run before
+		drawing any fortunes.
+	
+	./parrot = just reads the whole input and say something interesting.
+	
+	./parrot --echo = the same, just echo the input before appending the fortune.
+
+	./parrot --continuous = reads the whole input and say something interesting.
+		Then say something interesting about that, and so on.
+
+Usage as a mail signature generator:
+	Pipe the mail through "parrot --echo". In a Vim macro:
+		:noremap <C-E> :%!parrot --echo

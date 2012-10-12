@@ -10,7 +10,7 @@ typedef struct {
 	int count;
 
 	uint64_t *fortunes;
-	uint64_t fortunes_size, fortunes_cap; // TODO
+	uint64_t fortunes_size, fortunes_cap;
 } Entry;
 
 typedef struct {
@@ -305,4 +305,14 @@ void index_insert_fortune(Index* this, uint64_t fortune, int length) {
 
 uint64_t index_get_random_fortune(Index* this) {
 	return this->fortunes[rand() % this->fortunes_size].fortune;
+}
+
+uint64_t index_get_fortune_length(Index* this, uint64_t fortune) {
+	uint64_t i;
+	for (i = 0; i < this->fortunes_size; i++) {
+		if (this->fortunes[i].fortune == fortune) {
+			return this->fortunes[i].length;
+		}
+	}
+	exit(1);
 }
