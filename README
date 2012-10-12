@@ -6,12 +6,13 @@ Usage:
 	./parrot --rebuild-index = rebuilds the index. This needs to be run before
 		drawing any fortunes.
 	
-	./parrot = just reads the whole input and say something interesting.
+	./parrot = just reads the whole input and says something interesting.
 	
-	./parrot --echo = the same, just echo the input before appending the fortune.
+	./parrot --echo = the same, just echoes the input before appending the fortune.
 
-	./parrot --continuous = reads the whole input and say something interesting.
-		Then say something interesting about that, and so on.
+	./parrot --continuous = reads the whole input and says something interesting.
+		Then it says something interesting about that after waiting for 10
+		seconds, and repeats.
 
 Usage as a mail signature generator:
 	Pipe the mail through "parrot --echo". In a Vim macro:
