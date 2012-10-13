@@ -17,3 +17,36 @@ Usage:
 Usage as a mail signature generator:
 	Pipe the mail through "parrot --echo". In a Vim macro:
 		:noremap <C-E> :%!parrot --echo
+
+Files:
+	common.h
+		Contains common type definitions and declarations.
+
+	parrot.c
+		Contains most fortune-picking code.
+
+	tokenizer.{c|h}
+		Tokenizes input.
+
+	hash.{c|h}
+		Calculates a hash of tokens for faster manipulation.
+
+	index.{c|h}
+		Implements an index that contains lists of fortunes for every significant token,
+		plus a list of all fortunes.
+
+	build-index.{c|h}
+		Handles index building.
+
+	fortune-set.{c|h}
+		Saves "fortune - score" pairs and allows score-weighted random picking.
+
+	lcs.{c|h}
+		Calculates the length of the longest common substring of two hash_t arrays.
+
+	examples/*
+		Example inputs.
+
+	fortunes
+		Fortune files, concatenated together.
+

@@ -14,7 +14,7 @@
 #include <time.h>
 #include <assert.h>
 
-static void read_fortune(uint64_t fortune, char* buffer);
+static void read_fortune(uint64_t fortune, char** _buffer, uint64_t *buffer_cap);
 
 #include <stdarg.h>
 
@@ -152,6 +152,11 @@ static float _adjust_score(void* _opaque, uint64_t fortune, float former_score) 
 	return score;
 }
 
+static int _compare_token_score(const void* _a, const void* _b) {
+	const hash_t* a = _a, *b = _b;
+	return *b - *a;
+}
+
 static uint64_t pick_for_input(Index* index, char* input, uint64_t *avoid, uint64_t avoid_size) {
 	uint64_t fortune;
 	FortuneSet* fs;
@@ -161,7 +166,10 @@ static uint64_t pick_for_input(Index* index, char* input, uint64_t *avoid, uint6
 	uint64_t tokens_size, tokens_cap, i;
 
 	tokenize_into_array(input, &tokens, &tokens_size, &tokens_cap);
-	for (i = 0; i < tokens_size; i++) {
+	qsort(tokens, tokens_size, sizeof(*tokens), _compare_token_score);
+
+	// 10000 = magic constant
+	for (i = 0; i < tokens_size && fortune_set_get_size(fs) < 10000; i++) {
 		if (!index_contains_word(index, tokens[i])) {
 			continue;
 		}
@@ -187,12 +195,12 @@ static uint64_t pick_for_input(Index* index, char* input, uint64_t *avoid, uint6
 	return fortune;
 }
 
-// TODO: capacity
-static void read_fortune(uint64_t fortune, char* buffer) {
-	strcpy(buffer, "");
+static void read_fortune(uint64_t fortune, char** _buffer, uint64_t *buffer_cap) {
 	fseek(fortunes, fortune, SEEK_SET);
-	char line[256];
+	char line[1024];
 	uint64_t i = 0, read;
+	char* buffer = *_buffer;
+	buffer[0] = '\0';
 
 	while (!feof(fortunes)) {
 		if (!(read = fread(line, 1, sizeof(line), fortunes))) {
@@ -201,6 +209,12 @@ static void read_fortune(uint64_t fortune, char* buffer) {
 			break;
 		}
 		if (strcmp(line, "%\n") == 0) break;
+
+		while (*buffer_cap < read + i + 1) {
+			*buffer_cap *= 2;
+			buffer = realloc(buffer, *buffer_cap);
+			*_buffer = buffer;
+		}
 		memcpy(buffer + i, line, read);
 		i += read;
 	}
@@ -224,9 +238,9 @@ static void backlog_push(uint64_t* backlog, int* size, const int cap, const uint
 static int find_similar(Index* index, bool do_echo, bool do_continuous, int continuous_interval) {
 	index_load(index, INDEX_FILE);
 
-	uint64_t input_cap = 1024;
+	uint64_t input_cap = 1024, i = 0;
 	char *input = malloc(input_cap);
-	int i = 0, read;
+	int read;
 
 	while (!feof(stdin)) {
 		if (i == input_cap) {
@@ -258,7 +272,7 @@ static int find_similar(Index* index, bool do_echo, bool do_continuous, int cont
 			fortune = pick_for_input(index, input, backlog, backlog_size);
 			backlog_push(backlog, &backlog_size, sizeof(backlog) / sizeof(*backlog), fortune);
 			print_fortune(fortune);
-			read_fortune(fortune, input);
+			read_fortune(fortune, &input, &input_cap);
 			sleep(continuous_interval);
 		} while (true);
 	} else {

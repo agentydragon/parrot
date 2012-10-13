@@ -4,6 +4,7 @@
 
 // Returns the length of the longest common substring of A and B.
 // Runs in O(a_len * b_len), eats O(a_len * b_len) memory.
+// TODO: reimplement using suffix trees
 int longest_common_substring(const hash_t* a, uint64_t a_len, const hash_t* b, uint64_t b_len) {
 	uint64_t i, j;
 

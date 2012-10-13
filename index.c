@@ -5,6 +5,7 @@
 #include <string.h>
 #include <assert.h>
 
+// TODO: implement binary search on tokens
 typedef struct {
 	hash_t hash;
 	int count;
@@ -70,7 +71,6 @@ void index_init(Index** _this) {
 	index->fortunes_size = index->fortunes_cap = 0;
 
 	index->words_total = 0;
-	// TODO: chci to rychlejsi...
 	
 	*_this = index;
 }
@@ -139,14 +139,14 @@ void index_get_entry(Index* this, hash_t hash, int* word_count) {
 	// TODO
 }
 
-static int _compareEntries(const void* _a, const void* _b) {
+static int _compare_entries(const void* _a, const void* _b) {
 	const Entry* a = _a, *b = _b;
 	return b->count - a->count;
 }
 
 void index_get_top_entries(Index* this, hash_t *hashes, int count) {
 	int i;
-	qsort(this->entries, this->entries_size, sizeof(Entry), _compareEntries);
+	qsort(this->entries, this->entries_size, sizeof(Entry), _compare_entries);
 
 	for (i = 0; i < count; i++) {
 		hashes[i] = this->entries[i].hash;

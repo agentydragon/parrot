@@ -10,6 +10,7 @@ typedef struct {
 	float score;
 } Entry;
 
+// TODO: reimplement with search trees
 struct FortuneSet {
 	Entry* entries;
 	uint64_t entries_size, entries_cap;
@@ -74,7 +75,6 @@ static bool _array_contains(uint64_t* array, uint64_t size, uint64_t needle) {
 }
 
 uint64_t fortune_set_pick(FortuneSet* this, uint64_t *avoid, uint64_t avoid_size) {
-	uint64_t i, j;
 	if (fortune_set_is_empty(this)) {
 		error("Cannot pick a fortune from an empty set!");
 		return -1;
@@ -85,7 +85,8 @@ uint64_t fortune_set_pick(FortuneSet* this, uint64_t *avoid, uint64_t avoid_size
 
 	// Find 10 fortunes with the best score, but outside the array of avoided fortunes.
 	float scores[10];
-	const int N = sizeof(scores) / sizeof(*scores);
+	const uint64_t N = sizeof(scores) / sizeof(*scores);
+	uint64_t i, j;
 	uint64_t fortunes[N];
 	float min, max;
 
@@ -142,4 +143,8 @@ uint64_t fortune_set_pick(FortuneSet* this, uint64_t *avoid, uint64_t avoid_size
 
 bool fortune_set_is_empty(FortuneSet* this) {
 	return this->entries_size == 0;
+}
+
+uint64_t fortune_set_get_size(FortuneSet* this) {
+	return this->entries_size;
 }
