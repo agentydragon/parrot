@@ -12,6 +12,7 @@
 #include <math.h>
 #include <unistd.h>
 #include <time.h>
+#include <sys/time.h> // gettimeofday
 #include <assert.h>
 
 static void read_fortune(uint64_t fortune, char** _buffer, uint64_t *buffer_cap);
@@ -157,6 +158,10 @@ static int _compare_token_score(const void* _a, const void* _b) {
 	return *b - *a;
 }
 
+static uint64_t timeval_diff_ms(const struct timeval* a, const struct timeval* b) {
+	return (b->tv_sec - a->tv_sec) * 1000 + (b->tv_usec - a->tv_usec) / 1000;
+}
+
 static uint64_t pick_for_input(Index* index, char* input, uint64_t *avoid, uint64_t avoid_size) {
 	uint64_t fortune;
 	FortuneSet* fs;
@@ -168,8 +173,14 @@ static uint64_t pick_for_input(Index* index, char* input, uint64_t *avoid, uint6
 	tokenize_into_array(input, &tokens, &tokens_size, &tokens_cap);
 	qsort(tokens, tokens_size, sizeof(*tokens), _compare_token_score);
 
-	// 10000 = magic constant
-	for (i = 0; i < tokens_size && fortune_set_get_size(fs) < 10000; i++) {
+	struct timeval collection_start, now;
+	gettimeofday(&collection_start, NULL);
+	gettimeofday(&now, NULL);
+
+	// 500, 100 = magic constants: stop after collecting 500 fortunes, or
+	// after collecting 50 fortunes and running for 100 microseconds.
+	for (i = 0; !(i >= tokens_size || fortune_set_get_size(fs) >= 500
+		|| (fortune_set_get_size(fs) >= 50 && timeval_diff_ms(&now, &collection_start) >= 100)); i++) {
 		if (!index_contains_word(index, tokens[i])) {
 			continue;
 		}
@@ -178,6 +189,7 @@ static uint64_t pick_for_input(Index* index, char* input, uint64_t *avoid, uint6
 			.fortune_set = fs,
 			.hash = tokens[i]
 		});
+		gettimeofday(&now, NULL);
 	}
 
 	if (fortune_set_is_empty(fs)) {
