@@ -1,11 +1,11 @@
 Parrot - a fortune picker.
 
-Written by Michal Pokorný in 2012 as a semestral project in Programming I under
-Martin Mareš. License: BSD 2-clause; please drop me a mail if you use this program
-to do something interesting.
+Written by Michal Pokorný (pok@rny.cz) in 2012 as a semestral project
+in Programming I under Martin Mareš. License: BSD 2-clause; please drop
+me a mail if you use this program to do something interesting.
 
-The program expects a fortune file in ./fortunes. The file should be a list of fortunes
-with lines containing only "%" in between.
+The program expects a fortune file in ./fortunes. The file should be a list
+of fortunes with lines containing only "%" in between.
 
 It saves some indexing data to ./index.dat.
 
@@ -39,17 +39,19 @@ Files:
 		Calculates a hash of tokens for faster manipulation.
 
 	index.{c|h}
-		Implements an index that contains lists of fortunes for every significant token,
-		plus a list of all fortunes.
+		Implements an index that contains lists of fortunes for every
+		significant token, plus a list of all fortunes.
 
 	build-index.{c|h}
 		Handles index building.
 
 	fortune-set.{c|h}
-		Saves "fortune - score" pairs and allows score-weighted random picking.
+		Saves "fortune - score" pairs and allows score-weighted random
+		picking.
 
 	lcs.{c|h}
-		Calculates the length of the longest common substring of two hash_t arrays.
+		Calculates the length of the longest common substring of two
+		hash_t arrays.
 
 	examples/*
 		Example inputs.
@@ -59,12 +61,16 @@ Files:
 
 
 Short documentation:
-	Every fortune is first split into "word tokens". Those are then sorted by "information value". Then every token
-	in sorted order is used to find fortunes to "put into the hat". When the hat has 500 fortunes OR when the hat has
-	at least 50 fortunes and 100 milliseconds already passed, the search is stopped.
+	Every fortune is first split into "word tokens". Those are then sorted
+	by "information value". Then every token in sorted order is used to find
+	fortunes to "put into the hat". When the hat has 500 fortunes OR when the
+	hat has at least 50 fortunes and 100 milliseconds already passed,
+	the search is stopped.
 
-	Then the hat is scored by "shared information" with the input, and a fortune is picked with weighting by the scores.
-	The "shared information" score is partially based upon the length of the longest common subsequence (computed
-	in O(N^2)).
+	Then the hat is scored by "shared information" with the input, and
+	a fortune is picked with weighting by the scores. The "shared information"
+	score is partially based upon the length of the longest common subsequence
+	(computed in O(N^2)).
 
-	A list of "taboo fortunes" can be supplied to prevent short cycles in continuous mode.
+	A list of "taboo fortunes" can be supplied to prevent short cycles
+	while in continuous mode.
