@@ -1,6 +1,13 @@
 Parrot - a fortune picker.
 
-Expects a fortune file in ./fortunes. Saves some indexing data to ./index.dat.
+Written by Michal Pokorný in 2012 as a semestral project in Programming I under
+Martin Mareš. License: BSD 2-clause; please drop me a mail if you use this program
+to do something interesting.
+
+The program expects a fortune file in ./fortunes. The file should be a list of fortunes
+with lines containing only "%" in between.
+
+It saves some indexing data to ./index.dat.
 
 Usage:
 	./parrot --rebuild-index = rebuilds the index. This needs to be run before
@@ -50,3 +57,14 @@ Files:
 	fortunes
 		Fortune files, concatenated together.
 
+
+Short documentation:
+	Every fortune is first split into "word tokens". Those are then sorted by "information value". Then every token
+	in sorted order is used to find fortunes to "put into the hat". When the hat has 500 fortunes OR when the hat has
+	at least 50 fortunes and 100 milliseconds already passed, the search is stopped.
+
+	Then the hat is scored by "shared information" with the input, and a fortune is picked with weighting by the scores.
+	The "shared information" score is partially based upon the length of the longest common subsequence (computed
+	in O(N^2)).
+
+	A list of "taboo fortunes" can be supplied to prevent short cycles in continuous mode.
